@@ -17,9 +17,9 @@ class WP_Eraser
 
     public static function init()
     {
-        add_action( 'wp_enqueue_scripts', array(__CLASS__, 'enqueue_resourses'), 99 );
-        add_action( 'wp_ajax_erase_posts', 'delete_posts');
-        add_action( 'wp_ajax_erase_terms', 'delete_terms');
+        add_action( 'admin_enqueue_scripts', array(__CLASS__, 'enqueue_resourses'), 99 );
+        add_action( 'wp_ajax_erase_posts', array(__CLASS__, 'delete_posts') );
+        add_action( 'wp_ajax_erase_terms', array(__CLASS__, 'delete_terms') );
     }
 
     /**
@@ -27,9 +27,11 @@ class WP_Eraser
      *
      * @access private
      */
-    static function enqueue_resourses(){
-        $url = rtrim( plugins_url( basename(__DIR__) ), '/' );
-        wp_enqueue_script( 'eraser_queries', $url . '/resourse/queries.js', '', '1', true );
+    static function enqueue_resourses()
+    {
+        $src = plugins_url( basename(ERASER_DIR) );
+        wp_enqueue_style( 'eraser_style', $src . '/resourse/queries.css' );
+        wp_enqueue_script( 'eraser_queries', $src . '/resourse/eraser_page.js', '', '1', true );
         wp_localize_script('eraser_queries', 'eraser_props', array( 'nonce' => wp_create_nonce( self::SECURE ) ) );
     }
 
@@ -42,18 +44,19 @@ class WP_Eraser
      *
      * @access private
      */
-    function delete_posts( $post_type, $args = array() ) {
+    function delete_posts( $post_type, $args = array() )
+    {
         $args = wp_parse_args( $args, array(
             'count' => 100,
             ) );
 
         if( wp_is_ajax() ) {
             if( !isset($_POST['nonce']) || ! wp_verify_nonce( $_POST['nonce'], self::SECURE ) ){
-                wp_die('Ошибка! нарушены правила безопасности');
+                WPAdminPage::ajax_answer('Ошибка! нарушены правила безопасности');
             }
 
             if( ! isset($_POST['post_type']) || ! in_array(sanitize_text_field($_POST['post_type']), get_post_types()) ) {
-               wp_die('Неверный тип записи');
+               WPAdminPage::ajax_answer('Неверный тип записи');
             }
 
             if( isset($_POST['count']) ) {
@@ -86,8 +89,7 @@ class WP_Eraser
         }
 
         if ( wp_is_ajax() ) {
-            echo $i . ' записей удалено с доп. записями';
-            wp_die();
+            WPAdminPage::ajax_answer($i . ' записей удалено. Мета данные очищены.', 1);
         }
         return $i;
     }
@@ -101,18 +103,20 @@ class WP_Eraser
      *
      * @access private
      */
-    function delete_terms( $tax = false, $args = array() ) {
+    function delete_terms( $tax = false, $args = array() )
+    {
+        WPAdminPage::ajax_answer('ТЕСТ!');
         $args = wp_parse_args( $args, array(
             'count' => 100,
             ) );
 
         if( wp_is_ajax() ) {
             if( !isset($_POST['nonce']) || ! wp_verify_nonce( $_POST['nonce'], self::SECURE ) ){
-                wp_die('Ошибка! нарушены правила безопасности');
+                WPAdminPage::ajax_answer('Ошибка! нарушены правила безопасности');
             }
 
             if( ! isset($_POST['tax']) || ! in_array(sanitize_text_field($_POST['tax']), get_taxonomies()) ) {
-                wp_die('Неверная таксаномия');
+                WPAdminPage::ajax_answer('Неверная таксаномия');
             }
 
             if( isset($_POST['count']) ) {
@@ -137,7 +141,7 @@ class WP_Eraser
                 foreach ($metas as $meta_key => $meta_val) {
                     if( in_array($tax, array('product_tag', 'product_cat')) ) {
                         if( !function_exists('delete_woocommerce_term_meta') )
-                            wp_die('Для удаления терминов товаров включите WooCoomerce');
+                            WPAdminPage::ajax_answer('Для удаления терминов товаров включите WooCoomerce');
 
                         delete_woocommerce_term_meta( $term_id, $meta_key );
                     }
@@ -153,8 +157,7 @@ class WP_Eraser
         }
 
         if ( wp_is_ajax() ) {
-            echo $i . ' терминов удалено с доп. записями';
-            wp_die();
+            WPAdminPage::ajax_answer($i . ' терминов удалено с доп. записями', 1);
         }
         return $i;
     }
