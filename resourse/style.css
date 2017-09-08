@@ -1,0 +1,64 @@
+.action-type {
+    margin-bottom: 6px;
+}
+.action-type label {
+    display: inline-block;
+    margin-left: 11px;
+}
+.select-bar, .status-bar {
+    clear: both;
+    overflow: hidden;
+}
+.select-bar {
+    margin-bottom: 8px;
+}
+.select-bar label {
+    float: left;
+    line-height: 28px;
+    margin-right: 8px;
+}
+.select-bar select {
+    float: left;
+}
+.status-bar {
+    border-top: 1px solid #e5e5e5;
+    margin: 12px -12px -12px -12px;
+    padding: 0 12px;
+}
+.status-bar .logs {
+    float: left;
+    line-height: 28px;
+}
+.status-bar .spinner {
+    margin: 18px 0 0;
+}
+.status-bar .erase.button {
+    float: right;
+    margin: 1em 12px;
+}
+.result-area {
+    max-height: 400px;
+    overflow-y: scroll;
+    overflow-x: hidden;
+}
+.result-area table {
+    max-width: 100%;
+}
+.result-area table tr:last-child td {
+    height: 20px;
+}
+.result-area table td {
+    width: 20%;
+    position: relative;
+    height: 10px;
+}
+.result-area table td label {
+    position: absolute;
+    width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.result-input {
+    margin: 6px 0;
+}

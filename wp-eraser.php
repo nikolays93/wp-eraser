@@ -24,7 +24,7 @@ if( ! function_exists('wp_is_ajax') ) {
     }
 }
 
-define('ERASER_DIR', __DIR__);
+define('ERASER_DIR', rtrim(__DIR__, '/') );
 
 function initialize_eraser(){
     $dir = rtrim( plugin_dir_path( __FILE__ ), '/' );

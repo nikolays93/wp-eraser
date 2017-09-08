@@ -1,88 +1,73 @@
 <?php
 
-class EraserAdminPage extends WPAdminPage
+class EraserAdminPage
 {
+    const PAGE = 'eraser';
 
     function __construct()
     {
-        parent::__construct( 'eraser', array(
-            'parent' => 'options-general.php',
-            'title' => __('Отчистить данные'),
-            'menu' => __('Ластик'),
-            ),
-        array($this, 'page_render')
-        );
+        $page = new WP_Admin_Page();
 
-        $this->add_metabox( 'metabox1', 'Стереть записи', array($this, 'erase_posts'), $position = 'normal');
-        $this->add_metabox( 'metabox2', 'Стереть термины', array($this, 'erase_terms'), $position = 'normal');
-        $this->set_metaboxes();
+        $page->set_args( self::PAGE, array(
+            'parent'      => 'options-general.php',
+            'title'       => 'Правильное удаление данных',
+            'menu'        => 'Ластик',
+            'callback'    => array($this, 'page_render'),
+            'permissions' => 'manage_options',
+            // 'tab_sections'=> null,
+            'columns'     => 2,
+            ) );
+
+        $page->add_metabox( 'metabox1', 'Стереть записи', array(__CLASS__, 'erase_posts'), $position = 'normal');
+        $page->add_metabox( 'metabox2', 'Стереть термины', array(__CLASS__, 'erase_terms'), $position = 'normal');
+
+        $page->add_metabox( 'metabox3', 'Настройки', array(__CLASS__, 'settings'), $position = 'side');
+        $page->set_metaboxes();
+
+        add_action( 'wp_ajax_update_existing_posts', array(__CLASS__, 'erase_posts') );
+        add_action( 'wp_ajax_update_existing_terms', array(__CLASS__, 'erase_terms') );
     }
 
     function page_render() {}
 
-    function erase_posts()
+    static function erase_posts()
     {
-        self::render_post_type_select();
-        submit_button( 'Стереть данные', 'primary' );
-        echo "<div class='clear'></div>";
-    }
-
-    function erase_terms()
-    {
-        ?>
-        <form action="">
-        <?php
-        $count = self::render_taxanomies_select(); ?>
-            <p class="logout">Всего терминов: <span id='terms_count'><?php echo $count; ?></span></p>
-            <button id="erase-terms" class="button button-primary erase">Стереть данные</button>
-            <span class="spinner"><!-- is-active --></span>
-            <div class='clear'></div>
-        </form>
-        <?php
-    }
-
-    public static function render_post_type_select()
-    {
-        $post_type = isset($_POST['post_type']) ? $_POST['post_type'] : 'post';
         $types = get_post_types();
 
+        $options = '';
+        foreach ($types as $name => $text) {
+            $options .= "<option value='{$name}'>" . __($text) . "</option>";
+        }
+
+        $post_type = isset($_POST['post_type']) ? sanitize_text_field($_POST['post_type']) : 'post';
         $posts = get_posts( array(
             'post_type' => $post_type,
+            'post_status' => 'any',
+            'posts_per_page' => 4000,
             ) );
-        // var_dump($posts);
-        ?>
-        <label for='erase_post_type'>Тип записи:</label>
-        <p>
-        <select name='erase_post_type' id='erase_post_type'>
-            <?php
-            foreach ($types as $name => $text) {
-                echo "<option value='{$name}'>{$text}</option>";
-            }
-            ?>
-        </select>
-        </p>
-        <div id='posts_wrapper' class='columns'>
-            <table class="widefat striped">
-            <?php
-            // if( is_array($posts) && sizeof($posts) ) {
-            //     echo "<tr>";
-            //     $i = 0;
-            //     foreach ($posts as $post) {
-            //         echo "<td><label><input type='checkbox'><span>{$post->post_title}</span></label></td>";
-            //         if( $i == 6 ) {
-            //             echo "</tr><tr>";
-            //         }
-            //         $i++;
-            //     }
-            //     echo "</tr>";
-            // }
-            ?>
-            </table>
-        </div>
-        <?php
-    }
 
-    public static function render_taxanomies_select()
+        $strPostsTable = '';
+        $count = 0;
+        if( is_array($posts) && sizeof($posts) >= 1) {
+            $strPostsTable .= "<table class='widefat'><tr>";
+            foreach ($posts as $post) {
+                $strPostsTable .= "<td><label>";
+                $strPostsTable .= "<input type='checkbox' value='{$post->ID}'> {$post->post_title}";
+                $strPostsTable .= "</label></td> \r\n";
+                $count++;
+                if( $count % 5 == 0 )
+                    $strPostsTable .= "</tr><tr>";
+            }
+            $strPostsTable .= "</tr></table>";
+        }
+
+        if( wp_is_ajax() ) {
+            WP_Eraser::ajax_answer($strPostsTable, 1, array('count' => $count) );
+        }
+
+        include ERASER_DIR . '/resourse/box-posts.php';
+    }
+    static function erase_terms()
     {
         $taxes = get_taxonomies();
         $attributes = wc_get_attribute_taxonomies();
@@ -90,23 +75,46 @@ class EraserAdminPage extends WPAdminPage
         foreach ($attributes as $attribute) {
             unset( $taxes['pa_' . $attribute->attribute_name] );
         }
-        ?>
-        <label for='erase_taxanomy'><p>Таксаномии:</p></label>
-        <select name='erase_taxanomy' id='erase_taxanomy'>
-            <?php
-            $count = 0;
-            foreach ($taxes as $name => $text) {
-                echo "<option value='{$name}'>" . __($text) . "</option>";
-                $count++;
-            }
-            ?>
-        </select>
-        <div id='terms_wrapper'></div>
-        <?php
-        if( wp_is_ajax() ) {
-            parent::ajax_answer('Всего терминов', 1, array('count' => $count) );
+
+        $options = '';
+        foreach ($taxes as $name => $text) {
+            $options .= "<option value='{$name}'>" . __($text) . "</option>";
         }
-        return $count;
+
+        $taxanomy = isset($_POST['taxanomy']) ? sanitize_text_field($_POST['taxanomy']) : 'category';
+        $args = array(
+            'taxanomy'   => $taxanomy,
+            'hide_empty' => false,
+            // 'number'     => 0,
+            );
+        $ver = get_bloginfo('version');
+        $terms = (version_compare($ver, '4.5', '>=') ) ? get_terms( $args ) : get_terms( $taxanomy, $args );
+
+        $strTermsTable = '';
+        $count = 0;
+        if( is_array($terms) && sizeof($terms) >= 1) {
+            $strTermsTable .= "<table class='widefat'><tr>";
+            foreach ($terms as $term) {
+                $strTermsTable .= "<td><label>";
+                $strTermsTable .= "<input type='checkbox' value='{$term->term_id}'> {$term->name}";
+                $strTermsTable .= "</label></td> \r\n";
+                $count++;
+                if( $count % 5 == 0 )
+                    $strTermsTable .= "</tr><tr>";
+            }
+            $strTermsTable .= "</tr></table>";
+        }
+
+        if( wp_is_ajax() ) {
+            WP_Eraser::ajax_answer($strTermsTable, 1, array('count' => $count) );
+        }
+
+        include ERASER_DIR . '/resourse/box-terms.php';
+    }
+
+    static function settings()
+    {
+        echo "Количетсво записей стираемых за раз.";
     }
 }
 new EraserAdminPage();
